@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check-In/Out</title>
+    <title>Coworking Check-In/Out</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -12,64 +13,25 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 0;
         }
-        
-        .container {
-            text-align: center;
-            color: white;
-            animation: fadeIn 0.5s;
-        }
-        
-        .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .info {
-            font-size: 1.2em;
-            opacity: 0.9;
-            margin-top: 10px;
-        }
-        
-        .loading {
-            margin-top: 20px;
-            font-size: 1em;
-            opacity: 0.7;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        
-        .spinner {
-            display: inline-block;
-            animation: spin 1s linear infinite;
-        }
+        .container { text-align: center; color: white; padding: 20px; animation: fadeIn 0.5s; }
+        .icon { font-size: 80px; margin-bottom: 20px; }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .info { font-size: 1.2em; opacity: 0.9; margin-top: 10px; }
+        .loading { margin-top: 20px; opacity: 0.7; }
+        .spinner { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fall { to { transform: translateY(100vh) rotate(360deg); opacity: 0; } }
     </style>
 </head>
 <body>
     <div class="container" id="content">
-        <div class="loading">
-            <div class="spinner">⏳</div>
-            <p>Verarbeite...</p>
-        </div>
+        <div class="loading"><div class="spinner">⏳</div><p>Verarbeite...</p></div>
     </div>
-    
     <script>
         // ============================================
-        // KONFIGURATION - HIER DEINE WEBHOOK URL!
+        // KONFIGURATION - HIER DEINE WEBHOOK URL EINTRAGEN!
         // ============================================
         const WEBHOOK_URL = 'https://hook.eu1.make.com/YOUR-WEBHOOK-URL';
         
@@ -78,167 +40,98 @@
         // ============================================
         
         async function autoCheckInOut() {
-            // Prüfe: Bereits eingecheckt?
             const sessionId = localStorage.getItem('coworking_session');
             const checkinTime = localStorage.getItem('coworking_checkin_time');
-            
-            if (sessionId && checkinTime) {
-                // User ist bereits eingecheckt → CHECK-OUT!
-                await performCheckOut(sessionId, checkinTime);
-            } else {
-                // Nicht eingecheckt → CHECK-IN!
-                await performCheckIn();
-            }
+            sessionId && checkinTime ? await performCheckOut(sessionId, checkinTime) : await performCheckIn();
         }
         
         async function performCheckIn() {
-            // Generiere eindeutige Session-ID
             const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             const checkinTime = new Date().toISOString();
-            
-            // Rufe Webhook auf
             try {
-                await fetch(WEBHOOK_URL + '?action=in&session=' + sessionId, {
-                    method: 'GET'
-                });
-                
-                // Speichere Session
+                await fetch(WEBHOOK_URL + '?action=in&session=' + sessionId);
                 localStorage.setItem('coworking_session', sessionId);
                 localStorage.setItem('coworking_checkin_time', checkinTime);
-                
-                // Zeige Success
                 showCheckInSuccess();
-                
             } catch (error) {
+                console.error('Check-In Error:', error);
                 showError('Check-In fehlgeschlagen');
             }
         }
         
         async function performCheckOut(sessionId, checkinTime) {
-            // Berechne Dauer
-            const checkoutTime = new Date();
-            const checkin = new Date(checkinTime);
-            const durationMinutes = Math.round((checkoutTime - checkin) / 60000);
-            
-            // Rufe Webhook auf
+            const durationMinutes = Math.round((new Date() - new Date(checkinTime)) / 60000);
             try {
-                await fetch(WEBHOOK_URL + '?action=out&session=' + sessionId + '&duration=' + durationMinutes, {
-                    method: 'GET'
-                });
-                
-                // Lösche Session
+                await fetch(WEBHOOK_URL + '?action=out&session=' + sessionId + '&duration=' + durationMinutes);
                 localStorage.removeItem('coworking_session');
                 localStorage.removeItem('coworking_checkin_time');
-                
-                // Zeige Success
                 showCheckOutSuccess(durationMinutes);
-                
             } catch (error) {
+                console.error('Check-Out Error:', error);
                 showError('Check-Out fehlgeschlagen');
             }
         }
         
         function showCheckInSuccess() {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            
-            document.getElementById('content').innerHTML = `
-                <div class="icon">✓</div>
-                <h1>Check-In erfolgreich!</h1>
-                <p class="info">Eingecheckt um ${timeString} Uhr</p>
-                <p class="info">Viel Spaß im Space! 🎉</p>
-            `;
-            
-            // Konfetti-Effekt
+            const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('content').innerHTML = 
+                '<div class="icon">✓</div>' +
+                '<h1>Check-In erfolgreich!</h1>' +
+                '<p class="info">Eingecheckt um ' + time + ' Uhr</p>' +
+                '<p class="info">Viel Spaß im Space! 🎉</p>';
             createConfetti();
         }
         
         function showCheckOutSuccess(duration) {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            const hours = Math.floor(duration / 60);
-            const minutes = duration % 60;
-            
-            let durationText = '';
-            if (hours > 0) {
-                durationText = `${hours}h ${minutes}min`;
-            } else {
-                durationText = `${minutes} Minuten`;
-            }
-            
-            document.getElementById('content').innerHTML = `
-                <div class="icon">👋</div>
-                <h1>Check-Out erfolgreich!</h1>
-                <p class="info">Ausgecheckt um ${timeString} Uhr</p>
-                <p class="info">Du warst ${durationText} da</p>
-                <p class="info">Bis bald! ✨</p>
-            `;
-            
-            // Sparkle-Effekt
+            const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const h = Math.floor(duration / 60), m = duration % 60;
+            const dur = h > 0 ? h + 'h ' + m + 'min' : m + ' Minuten';
+            document.getElementById('content').innerHTML = 
+                '<div class="icon">👋</div>' +
+                '<h1>Check-Out erfolgreich!</h1>' +
+                '<p class="info">Ausgecheckt um ' + time + ' Uhr</p>' +
+                '<p class="info">Du warst ' + dur + ' da</p>' +
+                '<p class="info">Bis bald! ✨</p>';
             createSparkles();
         }
         
-        function showError(message) {
-            document.getElementById('content').innerHTML = `
-                <div class="icon">❌</div>
-                <h1>Fehler</h1>
-                <p class="info">${message}</p>
-                <p class="info">Bitte versuche es erneut</p>
-            `;
+        function showError(msg) {
+            document.getElementById('content').innerHTML = 
+                '<div class="icon">❌</div>' +
+                '<h1>Fehler</h1>' +
+                '<p class="info">' + msg + '</p>' +
+                '<p class="info">Bitte versuche es erneut</p>';
         }
         
         function createConfetti() {
             const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
             for (let i = 0; i < 30; i++) {
                 setTimeout(() => {
-                    const confetti = document.createElement('div');
-                    confetti.style.cssText = `
-                        position: fixed;
-                        width: 10px;
-                        height: 10px;
-                        background: ${colors[Math.floor(Math.random() * colors.length)]};
-                        left: ${Math.random() * 100}vw;
-                        animation: fall 3s linear forwards;
-                        top: -10px;
-                    `;
-                    document.body.appendChild(confetti);
-                    setTimeout(() => confetti.remove(), 3000);
+                    const c = document.createElement('div');
+                    c.style.cssText = 'position:fixed;width:10px;height:10px;background:' + 
+                        colors[Math.floor(Math.random()*4)] + 
+                        ';left:' + Math.random()*100 + 'vw;animation:fall 3s linear;top:-10px;border-radius:50%';
+                    document.body.appendChild(c);
+                    setTimeout(() => c.remove(), 3000);
                 }, i * 50);
             }
         }
         
         function createSparkles() {
-            const sparkles = ['✨', '⭐', '🌟', '💫'];
+            const sp = ['✨', '⭐', '🌟', '💫'];
             for (let i = 0; i < 15; i++) {
                 setTimeout(() => {
-                    const sparkle = document.createElement('div');
-                    sparkle.textContent = sparkles[Math.floor(Math.random() * sparkles.length)];
-                    sparkle.style.cssText = `
-                        position: fixed;
-                        font-size: 20px;
-                        left: ${Math.random() * 100}vw;
-                        animation: fall 2s linear forwards;
-                        top: -20px;
-                    `;
-                    document.body.appendChild(sparkle);
-                    setTimeout(() => sparkle.remove(), 2000);
+                    const s = document.createElement('div');
+                    s.textContent = sp[Math.floor(Math.random()*4)];
+                    s.style.cssText = 'position:fixed;font-size:20px;left:' + 
+                        Math.random()*100 + 'vw;animation:fall 2s linear;top:-20px';
+                    document.body.appendChild(s);
+                    setTimeout(() => s.remove(), 2000);
                 }, i * 80);
             }
         }
         
-        // CSS für Animationen
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fall {
-                to {
-                    transform: translateY(100vh) rotate(360deg);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Starte Auto-Check-In/Out
+        // Starte Auto-Check-In/Out beim Laden der Seite
         autoCheckInOut();
     </script>
 </body>
